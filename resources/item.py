@@ -1,12 +1,12 @@
+from typing import Dict, List
 from flask_restful import Resource, reqparse
 from flask_jwt_extended import (
     jwt_required, 
-    get_jwt_claims, 
-    jwt_optional, 
-    get_jwt_identity,
     fresh_jwt_required
 )
 from models.item import ItemModel
+
+BLANK_ERROR = "'{}' cannot be blank."
 
 class Item(Resource):
 
@@ -14,18 +14,17 @@ class Item(Resource):
     parser.add_argument('price',
         type=float,
         required=True,
-        help="This field cannot b left blank!"
+        help=BLANK_ERROR.format('price')
     )
 
     parser.add_argument('store_id',
         type=int,
         required=True,
-        help="Every item needs a store id"
+        help=BLANK_ERROR.format('store id')
     )
     
-
-    @jwt_required
-    def get(self, name):
+    @classmethod
+    def get(cls, name: str):
         item = ItemModel.find_by_name(name)
 
         if(item):
@@ -34,9 +33,9 @@ class Item(Resource):
         return {'message': 'Item not found'}, 404
 
     
-
+    @classmethod
     @fresh_jwt_required
-    def post(self, name):
+    def post(cls, name: str):
         
         if ItemModel.find_by_name(name):
             return {'message': "An item with '{}' already exists.".format(name)}, 400
@@ -53,14 +52,10 @@ class Item(Resource):
 
         return item.json(), 201
 
-    
+    @classmethod
     @jwt_required
-    def delete(self, name):
-        claims = get_jwt_claims()
-
-        if not claims['is_admin']:
-            return {'message': 'Admin privilege required'}, 401
-
+    def delete(cls, name: str):
+        
         item = ItemModel.find_by_name(name)
 
         if item:
@@ -68,7 +63,8 @@ class Item(Resource):
 
         return {'message': 'Item deleted'}
 
-    def put(self, name):
+    @classmethod
+    def put(cls, name: str):
         data = Item.parser.parse_args()
 
         item = ItemModel.find_by_name(name)
@@ -88,16 +84,11 @@ class Item(Resource):
 
 class ItemList(Resource):
 
-    @jwt_optional
-    def get(self):
-        user_id = get_jwt_identity()
-        items = [item.json() for item in ItemModel.find_all()]
-
-        if user_id:
-            return {'items': items}, 200
+    @classmethod
+    def get(cls) -> Dict:
         
         return {
-            'items': [item['name'] for item in items],
+            'items':[item.json() for item in ItemModel.find_all()],
             'message': 'More data available if you log in.'
         }
         #return {'items': list(map(lambda x:x.json(), ItemModel.query.all()))}
